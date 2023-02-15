@@ -32,6 +32,7 @@ include_directories(
     imgui
     imgui/backends
     xdl/include
+    KittyMemory
 )
 
 aux_source_directory(xdl xdl-src)
@@ -55,8 +56,9 @@ set(IMGUI_SRC
     imgui/backends/imgui_impl_android.cpp
     imgui/backends/imgui_impl_opengl3.cpp
 )
+file(GLOB KITTY_MEMORY_SRC ${PROJECT_SOURCE_DIR}/KittyMemory/*.cpp)
 
-add_library(${MODULE_NAME} SHARED main.cpp hack.cpp utils.cpp ${IMGUI_SRC} ${xdl-src})
+add_library(${MODULE_NAME} SHARED main.cpp hack.cpp utils.cpp ${IMGUI_SRC} ${xdl-src} ${KITTY_MEMORY_SRC})
 
 if(NOT TARGET dobby)
 set(DOBBY_DIR Dobby)

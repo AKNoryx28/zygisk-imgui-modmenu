@@ -15,6 +15,7 @@
 #include "imgui.h"
 #include "imgui_impl_android.h"
 #include "imgui_impl_opengl3.h"
+#include "MemoryPatch.h"
 
 static int              g_GlHeight, g_GlWidth;
 static bool             g_IsSetup = false;
@@ -78,7 +79,6 @@ void hack_start(const char *_game_data_dir) {
       g_TargetLibEnd = utils::get_end_address(TargetLibName);
     } while (g_TargetLibBase == 0 || g_TargetLibEnd == 0);
     LOGI("il2cpp: %p - %p", (void*)g_TargetLibBase, (void*)g_TargetLibEnd);
-
 }
 
 void hack_prepare(const char *_game_data_dir) {
