@@ -1,9 +1,13 @@
-#include "hack.h"
 #include <cstdint>
 #include <cstring>
 #include <cstdio>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <string>
+#include <EGL/egl.h>
+#include <GLES3/gl3.h>
+
+#include "hack.h"
 #include "log.h"
 #include "game.h"
 #include "utils.h"
@@ -11,8 +15,11 @@
 #include "imgui.h"
 #include "imgui_impl_android.h"
 #include "imgui_impl_opengl3.h"
-#include "EGL/egl.h"
-#include <GLES3/gl3.h>
+
+static int              g_GlHeight, g_GlWidth;
+static bool             g_IsSetup = false;
+static std::string      g_IniFileName = "";
+static uintptr_t        g_TargetLibBase = 0, g_TargetLibEnd = 0;
 
 HOOKAF(void, Input, void *thiz, void *ex_ab, void *ex_ac) {
     origInput(thiz, ex_ab, ex_ac);
@@ -20,14 +27,15 @@ HOOKAF(void, Input, void *thiz, void *ex_ab, void *ex_ac) {
     return;
 }
 
-static int glHeight, glWidth;
-static bool is_setup = false;
-
 void SetupImGui() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
-    io.DisplaySize = ImVec2((float) glWidth, (float) glHeight);
+
+    io.IniFilename = g_IniFileName.c_str();
+    io.DisplaySize = ImVec2((float)g_GlWidth, (float)g_GlHeight);
+
+    ImGui_ImplAndroid_Init(nullptr);
     ImGui_ImplOpenGL3_Init("#version 300 es");
     ImGui::StyleColorsLight();
 
@@ -40,17 +48,18 @@ void SetupImGui() {
 
 EGLBoolean (*old_eglSwapBuffers)(EGLDisplay dpy, EGLSurface surface);
 EGLBoolean hook_eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
-    eglQuerySurface(dpy, surface, EGL_WIDTH, &glWidth);
-    eglQuerySurface(dpy, surface, EGL_HEIGHT, &glHeight);
+    eglQuerySurface(dpy, surface, EGL_WIDTH, &g_GlWidth);
+    eglQuerySurface(dpy, surface, EGL_HEIGHT, &g_GlHeight);
 
-    if (!is_setup) {
-        SetupImGui();
-        is_setup = true;
+    if (!g_IsSetup) {
+      SetupImGui();
+      g_IsSetup = true;
     }
 
     ImGuiIO &io = ImGui::GetIO();
 
     ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplAndroid_NewFrame(g_GlWidth, g_GlHeight);
     ImGui::NewFrame();
 
     ImGui::ShowDemoWindow();
@@ -62,22 +71,21 @@ EGLBoolean hook_eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
     return old_eglSwapBuffers(dpy, surface);
 }
 
-uintptr_t il2cpp_base = 0, il2cpp_end = 0;
-
-void hack_start(const char *game_data_dir) {
-    LOGI("hack start | %s", game_data_dir);
+void hack_start(const char *_game_data_dir) {
+    LOGI("hack start | %s", _game_data_dir);
     do {
-        il2cpp_base = utils::get_base_address(TargetLibName);
-        il2cpp_end = utils::get_end_address(TargetLibName);
-    } while (il2cpp_base == 0 || il2cpp_end == 0);
-    LOGI("il2cpp: %p - %p", (void*)il2cpp_base, (void*)il2cpp_end);
+      g_TargetLibBase = utils::get_base_address(TargetLibName);
+      g_TargetLibEnd = utils::get_end_address(TargetLibName);
+    } while (g_TargetLibBase == 0 || g_TargetLibEnd == 0);
+    LOGI("il2cpp: %p - %p", (void*)g_TargetLibBase, (void*)g_TargetLibEnd);
 
 }
 
-void hack_prepare(const char *game_data_dir) {
+void hack_prepare(const char *_game_data_dir) {
     LOGI("hack thread: %d", gettid());
     int api_level = utils::get_android_api_level();
     LOGI("api level: %d", api_level);
+    g_IniFileName = std::string(_game_data_dir) + "/imgui.ini";
     sleep(5);
 
     void *sym_input = DobbySymbolResolver("/system/lib/libinput.so", "_ZN7android13InputConsumer21initializeMotionEventEPNS_11MotionEventEPKNS_12InputMessageE");
@@ -92,5 +100,5 @@ void hack_prepare(const char *game_data_dir) {
     }
     xdl_close(egl_handle);
 
-    hack_start(game_data_dir);
+    hack_start(_game_data_dir);
 }
