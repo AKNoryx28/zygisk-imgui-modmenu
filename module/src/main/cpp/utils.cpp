@@ -73,8 +73,9 @@ namespace utils {
         while (fgets(line, sizeof line, f)) {
             uintptr_t tmpBase;
             char tmpName[256];
-            if (sscanf(line, "%" PRIXPTR "-%*" PRIXPTR "%*s %*s %*s %*s %s", &tmpBase, tmpName) > 0) {
-                if (!strcmp(basename(tmpName), name)) {
+            char tmpPerms[4]; 
+            if (sscanf(line, "%" PRIXPTR "-%*" PRIXPTR "%s %*s %*s %*s %s", &tmpBase, tmpPerms, tmpName) > 0) {
+                if (!strcmp(basename(tmpName), name) && strstr(tmpPerms, "xp") != NULL) {
                     base = tmpBase;
                     break;
                 }
@@ -96,8 +97,9 @@ namespace utils {
         while (fgets(line, sizeof line, f)) {
             uintptr_t tmpEnd;
             char tmpName[256];
-            if (sscanf(line, "%*" PRIXPTR "-%" PRIXPTR "%*s %*s %*s %*s %s", &tmpEnd, tmpName) > 0) {
-                if (!strcmp(basename(tmpName), name)) {
+            char tmpPerms[4];
+            if (sscanf(line, "%*" PRIXPTR "-%" PRIXPTR "%s %*s %*s %*s %s", &tmpEnd, tmpPerms, tmpName) > 0) {
+                if (!strcmp(basename(tmpName), name) && strstr(tmpPerms, "xp") != NULL) {
                     if (!found) found = true;
                 } else {
                     if (found) {
