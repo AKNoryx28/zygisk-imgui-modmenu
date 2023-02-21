@@ -17,10 +17,10 @@
 #include "imgui_impl_opengl3.h"
 #include "MemoryPatch.h"
 
-static int              g_GlHeight, g_GlWidth;
-static bool             g_IsSetup = false;
-static std::string      g_IniFileName = "";
-static uintptr_t        g_TargetLibBase = 0, g_TargetLibEnd = 0;
+static int                  g_GlHeight, g_GlWidth;
+static bool                 g_IsSetup = false;
+static std::string          g_IniFileName = "";
+static utils::module_info   g_TargetModule{};
 
 HOOKAF(void, Input, void *thiz, void *ex_ab, void *ex_ac) {
     origInput(thiz, ex_ab, ex_ac);
@@ -75,17 +75,20 @@ EGLBoolean hook_eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
 void hack_start(const char *_game_data_dir) {
     LOGI("hack start | %s", _game_data_dir);
     do {
-      g_TargetLibBase = utils::get_base_address(TargetLibName);
-      g_TargetLibEnd = utils::get_end_address(TargetLibName);
-    } while (g_TargetLibBase == 0 || g_TargetLibEnd == 0);
-    LOGI("il2cpp: %p - %p", (void*)g_TargetLibBase, (void*)g_TargetLibEnd);
+        sleep(1);
+        g_TargetModule = utils::find_module(TargetLibName);
+    } while (g_TargetModule.size <= 0);
+    LOGI("%s: %p - %p",TargetLibName, g_TargetModule.start_address, g_TargetModule.end_address);
+
+    // TODO: hooking/patching here
+    
 }
 
 void hack_prepare(const char *_game_data_dir) {
     LOGI("hack thread: %d", gettid());
     int api_level = utils::get_android_api_level();
     LOGI("api level: %d", api_level);
-    g_IniFileName = std::string(_game_data_dir) + "/imgui.ini";
+    g_IniFileName = std::string(_game_data_dir) + "files/imgui.ini";
     sleep(5);
 
     void *sym_input = DobbySymbolResolver("/system/lib/libinput.so", "_ZN7android13InputConsumer21initializeMotionEventEPNS_11MotionEventEPKNS_12InputMessageE");

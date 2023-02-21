@@ -1,9 +1,11 @@
 #ifndef ZYGISK_IMGUI_MODMENU_UTILS_H
 #define ZYGISK_IMGUI_MODMENU_UTILS_H
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <dobby.h>
+#include <string>
 
 typedef dobby_dummy_func_t func_t;
 
@@ -26,11 +28,18 @@ typedef dobby_dummy_func_t func_t;
 #endif
 
 namespace utils {
+    struct module_info {
+        void* start_address = nullptr;
+        void* end_address  = nullptr;
+        size_t size = 0;
+        std::string name;
+    };
     int get_android_api_level();
     bool read_address(void *address, void *out_buffer, size_t length);
     bool write_address(void *address, void *in_buffer, size_t length);
-    uintptr_t get_base_address(const char *name);
-    uintptr_t get_end_address(const char *name);
+    module_info find_module(const char *name);
+    uintptr_t find_pattern(uint8_t* start, const size_t length, const char* pattern);
+    uintptr_t find_pattern_in_module(const char* lib_name, const char* pattern);
     int hook(void *target, func_t replace, func_t *backup);
 }
 

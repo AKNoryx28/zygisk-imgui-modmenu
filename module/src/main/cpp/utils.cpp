@@ -1,4 +1,7 @@
 #include "utils.h"
+#include "log.h"
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
@@ -44,6 +47,7 @@ namespace utils {
         __system_property_get("ro.build.version.sdk", prop_value);
         return atoi(prop_value);
     }
+
     bool read_address(void *address, void *out_buffer, size_t length) {
         unsigned long page_size = sysconf(_SC_PAGE_SIZE);
         unsigned long size = page_size * sizeof(uintptr_t);
@@ -62,56 +66,54 @@ namespace utils {
                memcpy(address, in_buffer, length) != 0;
     }
 
-    uintptr_t get_base_address(const char *name) {
-        uintptr_t base = 0;
+    module_info find_module(const char *name) {
+        module_info module{};
         char line[512];
 
-        FILE *f = fopen("/proc/self/maps", "r");
+        FILE *f = fopen("/proc/self/maps", "rt");
 
-        if (!f) return 0;
+        if (!f) return module;
 
         while (fgets(line, sizeof line, f)) {
             uintptr_t tmpBase;
+            uintptr_t tmpEnd;
             char tmpName[256];
             char tmpPerms[4]; 
-            if (sscanf(line, "%" PRIXPTR "-%*" PRIXPTR "%s %*s %*s %*s %s", &tmpBase, tmpPerms, tmpName) > 0) {
+            if (sscanf(line, "%" PRIXPTR "-%" PRIXPTR "%s %*s %*s %*s %s", &tmpBase, &tmpEnd, tmpPerms, tmpName) > 0) {
                 if (!strcmp(basename(tmpName), name) && strstr(tmpPerms, "xp") != NULL) {
-                    base = tmpBase;
+                    module.start_address = reinterpret_cast<void*>(tmpBase);
+                    module.end_address = reinterpret_cast<void*>(tmpEnd);
+                    module.size = tmpEnd - tmpBase;
+                    module.name = std::string(tmpName);
                     break;
                 }
             }
         }
         fclose(f);
-        return base;
+        return module;
     }
-
-    uintptr_t get_end_address(const char *name) {
-        uintptr_t end = 0;
-        char line[512];
-
-        FILE *f = fopen("/proc/self/maps", "r");
-
-        if (!f) return 0;
-
-        bool found = false;
-        while (fgets(line, sizeof line, f)) {
-            uintptr_t tmpEnd;
-            char tmpName[256];
-            char tmpPerms[4];
-            if (sscanf(line, "%*" PRIXPTR "-%" PRIXPTR "%s %*s %*s %*s %s", &tmpEnd, tmpPerms, tmpName) > 0) {
-                if (!strcmp(basename(tmpName), name) && strstr(tmpPerms, "xp") != NULL) {
-                    if (!found) found = true;
-                } else {
-                    if (found) {
-                        end = tmpEnd;
-                        break;
-                    }
-                }
+    
+    uintptr_t find_pattern(uint8_t* start, const size_t length, const char* pattern) {
+        const char* pat = pattern;
+        uint8_t* first_match = 0;
+        for (auto current_byte = start; current_byte < (start + length); ++current_byte) {
+            if (*pat == '?' || *current_byte == strtoul(pat, NULL, 16)) {
+                if (!first_match)
+                    first_match = current_byte;
+                if (!pat[2])
+                    return (uintptr_t)first_match;
+                pat += *(uint16_t*)pat == 16191 || *pat != '?' ? 3 : 2;
             }
-        }
-
-        fclose(f);
-        return end;
+            else if (first_match) {
+                current_byte = first_match;
+                pat = pattern;
+                first_match = 0;
+            }
+        } return 0;
+    }
+    uintptr_t find_pattern_in_module(const char* lib_name, const char* pattern) {
+        module_info mod = find_module(lib_name);
+        return find_pattern((uint8_t*)mod.start_address, mod.size, pattern);
     }
 
     int hook(void *target, func_t replace, func_t *backup) {
