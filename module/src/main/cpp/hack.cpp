@@ -88,7 +88,7 @@ void hack_prepare(const char *_game_data_dir) {
     LOGI("hack thread: %d", gettid());
     int api_level = utils::get_android_api_level();
     LOGI("api level: %d", api_level);
-    g_IniFileName = std::string(_game_data_dir) + "files/imgui.ini";
+    g_IniFileName = std::string(_game_data_dir) + "/files/imgui.ini";
     sleep(5);
 
     void *sym_input = DobbySymbolResolver("/system/lib/libinput.so", "_ZN7android13InputConsumer21initializeMotionEventEPNS_11MotionEventEPKNS_12InputMessageE");
